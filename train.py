@@ -57,8 +57,8 @@ def run_train(num_epochs = 20):
 
   x_dim = 28 * 28
   # MNIST is 28 x 28
-  encoder_hidden_layers = [400, 256]
-  decoder_hidden_layers = [256, 400]
+  encoder_hidden_layers = [512, 384, 256]
+  decoder_hidden_layers = [256, 384, 512]
   latent_dim = 128
 
   encoder = vae.MLPEncoder(encoder_hidden_layers, latent_dim)
@@ -74,6 +74,3 @@ def run_train(num_epochs = 20):
   train(net, optimizer, train_iter, valid_iter, latent_dim, num_epochs)
 
   return net
-
-if __name__ == "__main__":
-  run_train()
