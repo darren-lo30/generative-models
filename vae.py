@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+from utils import ELBOLoss
 
 class MLPEncoder(nn.Module):
   def __init__(self, layer_sizes, latent_dim):
@@ -34,29 +35,55 @@ class MLPDecoder(nn.Module):
     return self.net(z)
 
 class VAE(nn.Module):
-  def __init__(self, encoder, decoder):
+  def __init__(self, encoder, decoder, device):
     super(VAE, self).__init__()
+    self.device = device
     self.encoder = encoder
     self.decoder = decoder
 
   # epsilon ~ N(0, I) (batch_size, 1)
-  def forward(self, x, epsilon):
+  def forward(self, x):
     # Encoder produces mu, sigma
     # z ~ N(mu, sigma^2 I) 
     mu, log_var = self.encoder(x)
+    epsilon = torch.randn_like(log_var).to(self.device)
     z = mu + epsilon * torch.exp(0.5 * log_var)
     
     x_hat = self.decoder(z)
 
     # We need log_var, mu to calculate loss
     return x_hat, mu, log_var
-    
 
-def ELBOLoss(mu, log_var, x_hat, x):
-  reconstruction = -nn.functional.mse_loss(x_hat, x, reduction='sum')
-  # This is the KL divergence between Q(z|x) and N(0, I)
-  divergence = 0.5 * (log_var.exp() + mu.pow(2) - 1 - log_var).sum() 
+def train_vae(net, optimizer, train_iter, valid_iter, num_epochs = 20, device=get_device()):
+  for epoch in range(num_epochs):
+    avg_train_loss = 0
+    for examples, _ in train_iter:
+      examples = examples.to(device)
+      examples = examples.reshape(examples.shape[0], -1) # reshape into (batch_size, 28 * 28) 
+      optimizer.zero_grad()
+      net.train()
 
-  elbo = reconstruction - divergence
-  # Return negative since we want to maximize
-  return -elbo
+      # epsilon ~ N(0, I)
+      x_hat, mu, log_var = net(examples)
+
+      elbo_loss = ELBOLoss(mu, log_var, x_hat, examples)
+
+      elbo_loss.backward()
+      avg_train_loss += elbo_loss.cpu().detach().numpy()
+      optimizer.step()
+    avg_train_loss /= len(train_iter.dataset)
+    print(f'Epoch {epoch} - Train Loss: {avg_train_loss}')
+
+    avg_valid_loss =0
+    for examples, _ in valid_iter:
+      net.eval()
+      examples = examples.to(device)
+      examples = examples.reshape(examples.shape[0], -1)
+      
+      x_hat, mu, log_var = net(examples)
+      elbo_loss = vae.ELBOLoss(mu, log_var, x_hat, examples)
+
+      avg_valid_loss += elbo_loss
+
+    avg_valid_loss /= len(valid_iter.dataset)
+    print(f'Epoch {epoch} - Valid Loss: {avg_valid_loss}')
