@@ -1,6 +1,6 @@
 from torch import nn
 import torch
-from utils import ELBOLoss
+from utils import ELBOLoss, get_device
 
 class MLPEncoder(nn.Module):
   def __init__(self, layer_sizes, latent_dim):
@@ -81,7 +81,7 @@ def train_vae(net, optimizer, train_iter, valid_iter, num_epochs = 20, device=ge
       examples = examples.reshape(examples.shape[0], -1)
       
       x_hat, mu, log_var = net(examples)
-      elbo_loss = vae.ELBOLoss(mu, log_var, x_hat, examples)
+      elbo_loss = ELBOLoss(mu, log_var, x_hat, examples)
 
       avg_valid_loss += elbo_loss
 
